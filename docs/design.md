@@ -6,13 +6,13 @@
 
 The checker answers a narrow question: do the local links written in a repository's Markdown point to available files and headings within the selected root?
 
-The initial implementation favors a predictable offline command, a small Python dependency footprint, and reports useful in both a terminal and GitHub Actions. Existing Markdown and general-purpose link checkers already solve parts of this problem. This project does not claim to invent local-link checking or replace every documentation toolchain.
+The initial implementation favors a predictable offline command, a small dependency footprint, and reports useful in both a terminal and GitHub Actions. Existing Markdown and general-purpose link checkers already solve parts of this problem. This project does not claim to invent local-link checking or replace every documentation toolchain.
 
 ## Audit flow
 
 1. Resolve the repository root, input paths, and TOML configuration.
 2. Discover Markdown sources within the root, applying source exclusions.
-3. Parse Markdown using `markdown-it-py` and collect link and image destinations, plus opt-in static HTML attributes.
+3. Parse Markdown as CommonMark with the `pulldown-cmark` crate (tables and strikethrough enabled) and collect link and image destinations, plus opt-in static HTML attributes read by the crate's own HTML tokenizer (`src/html.rs`).
 4. Skip configured destinations and external protocols.
 5. Resolve local paths, preserving the repository boundary and checking filename casing.
 6. For Markdown fragments, compare the requested fragment with the destination headings.
@@ -47,7 +47,7 @@ Locations combine Markdown parser block mappings with tracked inline link positi
 ## Known limitations
 
 - External HTTP/HTTPS destinations are skipped. Availability, redirects, authentication, and rate limits are not evaluated.
-- Static HTML `href`/`src` and arbitrary element IDs are opt-in. HTML parsing is limited to Markdown HTML tokens and Python `HTMLParser`; `srcset`, CSS URLs, dynamic attributes, and browser error recovery are not implemented.
+- Static HTML `href`/`src` and arbitrary element IDs are opt-in. HTML parsing is limited to Markdown HTML tokens read with a static tag tokenizer; `srcset`, CSS URLs, dynamic attributes, and browser error recovery are not implemented.
 - MDX expressions, template variables, generated routes, extensionless routes, and framework-specific URL rewrites are not resolved.
 - Markdown parsing is not a promise of full GitHub Flavored Markdown compatibility. Renderer-specific heading IDs can differ.
 - Fragments inside PDFs, HTML files, SVGs, and other non-Markdown files are not validated.

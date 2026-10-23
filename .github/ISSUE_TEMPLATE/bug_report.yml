@@ -10,8 +10,8 @@ body:
     id: environment
     attributes:
       label: Versions and platform
-      description: Include mdlink-audit, Python, operating system, and relevant filesystem details.
-      placeholder: "mdlink-audit 0.1.0; Python 3.11; Windows / macOS / Linux"
+      description: Include the mdlink-audit version, operating system, and relevant filesystem details.
+      placeholder: "mdlink-audit 0.2.0; Windows / macOS / Linux"
     validations:
       required: true
   - type: textarea

@@ -4,7 +4,7 @@
 
 在重命名、移动文件或发布版本前，检查文档中的本地链接是否仍然有效。
 
-**mdlink-audit** 是一个离线运行的 Python 命令行工具，用于检查仓库内 Markdown 的文件链接、图片路径和标题锚点。结果可输出为终端文本、JSON 或 GitHub Actions 注解。
+**mdlink-audit** 是一个离线运行的 Rust 命令行工具，用于检查仓库内 Markdown 的文件链接、图片路径和标题锚点。结果可输出为终端文本、JSON 或 GitHub Actions 注解。
 
 [English](README.md) · [使用说明](docs/usage.md) · [GitHub Action](docs/github-action.md) · [真实仓库验证](docs/validation.md) · [参与贡献](CONTRIBUTING.md)
 
@@ -23,17 +23,17 @@
 
 检查结果会为相近的文件名、标题和大小写错误提供候选修正链接，供你确认后修改。已闭合的 YAML 文档头、代码示例和注释不参与链接检查。
 
-需要 **Python 3.11 或更高版本**。使用 pip 和 Git 安装指定版本，然后在需要检查的仓库目录运行：
+需要安装带 Cargo 的 Rust 工具链。使用 Cargo 和 Git 安装指定版本，然后在需要检查的仓库目录运行：
 
 ```sh
-python -m pip install "git+https://github.com/christypixel68-cloud/mdlink-audit.git@v0.2.0"
-python -m mdlink_audit --help
-python -m mdlink_audit .
+cargo install --locked --git https://github.com/christypixel68-cloud/mdlink-audit.git --tag v0.2.0
+mdlink-audit --help
+mdlink-audit .
 ```
 
-也可以从 [GitHub Release](https://github.com/christypixel68-cloud/mdlink-audit/releases/tag/v0.2.0) 下载 `.whl` 文件，再用 `python -m pip install 下载的文件路径.whl` 安装。当前尚未发布到 PyPI。
+当前尚未发布到 crates.io。在源码目录中运行 `cargo build --release --locked` 会在 `target/release/` 生成 `mdlink-audit`。
 
-安装后也可使用 `mdlink-audit` 命令：
+更多示例：
 
 ```sh
 mdlink-audit --root /path/to/repository
@@ -41,13 +41,6 @@ mdlink-audit README.md docs --format text
 mdlink-audit --format json
 ```
 
-从源码目录运行演示，会先在临时仓库中报告路径大小写和标题错误，再展示修正后的通过结果：
-
-```sh
-git clone https://github.com/christypixel68-cloud/mdlink-audit.git
-cd mdlink-audit
-python examples/demo.py
-```
 
 默认从当前工作目录向上查找最近的 `.git`，将其所在目录作为根目录；找不到时使用当前工作目录。不传入路径时扫描整个根目录。显式传入的路径相对于当前工作目录解析，并且必须位于所选根目录内。
 
@@ -81,9 +74,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
-        with:
-          python-version: "3.11"
       - uses: christypixel68-cloud/mdlink-audit@v0.2.0
         with:
           include-html: 'true'
@@ -107,18 +97,16 @@ repos:
 
 ## 当前状态
 
-`0.2.0` 仍是早期版本。已有其他工具具备相近能力，本项目聚焦离线 Python 工作流、本地路径和标题检查，以及便于定位问题的 CI 输出。它不是完整的 GitHub Markdown 渲染器，也不保证完整兼容 GitHub Flavored Markdown。
+`0.2.0` 仍是早期版本。已有其他工具具备相近能力，本项目聚焦离线工作流、本地路径和标题检查，以及便于定位问题的 CI 输出。它不是完整的 GitHub Markdown 渲染器，也不保证完整兼容 GitHub Flavored Markdown。
 
 在把它作为发布检查前，请先阅读[已知限制](docs/design.md#known-limitations)。[路线图](docs/roadmap.md)列出了后续候选工作，[更新记录](CHANGELOG.md)仅记录已实现的变化。
 
 ## 开发与贡献
 
 ```sh
-python -m pip install ".[dev]"
-python -m ruff check .
-python -m ruff format --check .
-python -m pytest
-python -m mdlink_audit . --fail-on-empty
+cargo build --release --locked
+cargo test --locked
+cargo run --release --locked --bin mdlink-audit -- . --fail-on-empty
 ```
 
 欢迎提交最小复现、跨平台兼容修复和文档改进。请参考[贡献指南](CONTRIBUTING.md)和[安全政策](SECURITY.md)。

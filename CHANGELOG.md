@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Rewrote the checker as a Rust command-line program with the same reports, JSON schema and exit statuses; the GitHub Action builds it with Cargo and runs the `mdlink-audit-action` entry point.
+
 ## 0.2.0 — HTML links and CI integration
 
 - Added opt-in static HTML `href`/`src` validation and arbitrary HTML element IDs inside Markdown, preserving the default Markdown-only behavior.

@@ -2,6 +2,6 @@
   name: Check local Markdown links
   description: Audit the repository, including inbound links to changed headings.
   entry: mdlink-audit --fail-on-empty
-  language: python
+  language: rust
   pass_filenames: false
   always_run: true

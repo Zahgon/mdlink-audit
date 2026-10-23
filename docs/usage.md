@@ -4,15 +4,15 @@
 
 ## Installation
 
-Use Python 3.11 or later. Install from a local checkout:
+Install from a local checkout with Cargo:
 
 ```sh
-python -m pip install .
+cargo install --locked --path .
 ```
 
-The distribution depends on `markdown-it-py` version 3 or 4. No network access is needed while auditing documents. Installation may need network access to resolve dependencies.
+No network access is needed while auditing documents. Building may need network access to fetch crates.
 
-The CLI is available as either `mdlink-audit` or `python -m mdlink_audit`.
+The CLI is available as `mdlink-audit`.
 
 ## Choose the repository and scan paths
 
@@ -33,12 +33,18 @@ The root also defines the meaning of links beginning with `/`. These are reposit
 ```text
 mdlink-audit [paths ...]
   [--root PATH]
-  [--format text|json|github]
+  [--format text|json|github|sarif|junit]
   [--config PATH]
   [--exclude GLOB ...]
   [--ignore-link GLOB ...]
   [--include-html | --no-include-html]
   [--fail-on-empty]
+  [--walk-symlinks]
+  [--baseline FILE]
+  [--fix]
+  [--audit-definitions]
+  [--require-alt]
+  [--audit-anchors]
   [--version]
 ```
 
@@ -56,14 +62,38 @@ mdlink-audit --ignore-link "/generated-api/*" --ignore-link "generated/*"
 | `--format text` | Human-readable terminal results; the default. |
 | `--format json` | Machine-readable audit results. |
 | `--format github` | GitHub Actions workflow annotations. |
+| `--format sarif` | A SARIF 2.1.0 log for code-scanning tools. |
+| `--format junit` | A JUnit XML report: one test suite per file with issues, one failing test case per issue. |
+| `--walk-symlinks` | Also walk symbolic links to directories inside the root, never one already on the walk path. |
 | `--config PATH` | Read a specified TOML configuration file. |
 | `--exclude GLOB` | Exclude matching Markdown source paths from scanning. Repeatable. |
 | `--ignore-link GLOB` | Skip matching link destinations. Repeatable. |
 | `--include-html` / `--no-include-html` | Enable or disable static HTML links and IDs in Markdown, overriding configuration. |
 | `--fail-on-empty` | Exit with status `2` if no Markdown source files are selected. |
+| `--baseline FILE` | Suppress issues already recorded in an earlier `--format json` report (same file, line, target and code); the summary counts them as baselined. A file that is not JSON stops the run with the JSON reader's message, line, column and character position. |
+| `--fix` | After reporting, rewrite each `case_mismatch` or `normalization_mismatch` target that has a suggestion to that suggestion, in place. |
+| `--audit-definitions` | Also report link reference definitions no reference uses (`unused_definition`), definitions that repeat an earlier label (`duplicate_definition`), and full or collapsed references whose label matches no definition (`undefined_reference`). |
+| `--require-alt` | Also report Markdown images whose alternative text is blank, and with HTML auditing `img` elements without a non-blank `alt` (`missing_alt`). |
+| `--audit-anchors` | Also report anchors (heading slugs, `{#id}` ids, HTML anchors) defined more than once in a document (`duplicate_anchor`). |
 | `--version` | Print the installed version. |
 
 Quote patterns so your shell does not expand them before the checker receives them.
+
+## Link rewrites, severities and explicit heading ids
+
+`.mdlink-audit.toml` may also hold:
+
+```toml
+# The first pair whose first string starts a link target replaces that prefix before the link is checked.
+link_rewrites = [["/api/", "/generated/api/"], ["@docs/", "docs/"]]
+
+# Each issue code may be "error" (the default), "warning" (reported, never fails the run) or "off" (not reported).
+[severity]
+missing_anchor = "warning"
+case_mismatch = "off"
+```
+
+A heading whose text ends with `{#id}` (letters, digits, `_` and `-`) gets the anchor `id` instead of a generated slug.
 
 ## Configuration
 
@@ -75,9 +105,9 @@ ignore_links = ["/generated-api/*"]
 include_html = true
 ```
 
-`exclude` and `ignore_links` are arrays of strings; `include_html` is a boolean, defaulting to `false`. All keys are at the top level. Do not wrap them in `[tool.mdlink-audit]` or another table. CLI patterns are added to the configuration patterns; they do not replace them. `exclude` selects source files to omit; it is not a way to ignore a missing destination. `ignore_links` skips matching link destinations completely. Keep exceptions narrow and explain why they are needed in TOML comments.
+`exclude` and `ignore_links` are arrays of strings; `include_html` is a boolean, defaulting to `false`. A configuration file that is not valid TOML stops the run with the TOML reader's message and the line and column it refers to; a file that is not UTF-8 is reported with the offending bytes and their position. All keys are at the top level. Do not wrap them in `[tool.mdlink-audit]` or another table. CLI patterns are added to the configuration patterns; they do not replace them. `exclude` selects source files to omit; it is not a way to ignore a missing destination. `ignore_links` skips matching link destinations completely. Keep exceptions narrow and explain why they are needed in TOML comments.
 
-Exclusions match case-sensitive, repository-relative paths using forward slashes and Python-style `fnmatch` patterns. An initial `**/` also matches a file directly under the root; `generated/**` can exclude an entire directory. These are glob patterns, not regular expressions or `.gitignore` rules. In particular, Python `fnmatch` allows `*` to match `/` within a path.
+Exclusions match case-sensitive, repository-relative paths using forward slashes and shell-style `fnmatch` patterns. An initial `**/` also matches a file directly under the root; `generated/**` can exclude an entire directory. These are glob patterns, not regular expressions or `.gitignore` rules. In particular, `*` and `?` also match `/` within a path, braces are literal, and a backslash is an ordinary character.
 
 The following directory names are excluded at every depth by default: `.git`, `.venv`, `venv`, `node_modules`, `__pycache__`, `build`, `dist`, `.tox`, `.pytest_cache`, and `.ruff_cache`. Custom patterns add to these defaults. The `.github` directory is scanned normally.
 
@@ -103,6 +133,24 @@ The following fenced example illustrates supported Markdown forms; the filenames
 Markdown files with fragments are checked against the destination document's headings and static HTML `<a id="...">` or `<a name="...">` anchors. Fragments on non-Markdown targets are not interpreted as document headings. A directory target is checked for existence only; a fragment on it is not checked against a README. Use exact filename casing even when your local filesystem accepts other casing.
 
 Links with external protocols, such as `https:`, `mailto:`, and `data:`, and protocol-relative URLs are skipped and counted as skipped destinations. An offline pass therefore says nothing about whether an external website is reachable.
+
+## Re-including excluded paths
+
+An exclusion pattern written `!pattern` re-includes what earlier patterns excluded:
+for every path the last matching pattern decides, configuration patterns before
+`--exclude` ones. Paths below an excluded directory are never walked, so they
+cannot be re-included.
+
+## Fragments into HTML files
+
+A fragment of a link to an `.html` or `.htm` file is checked against the file's
+non-empty `id` attributes and the `name` attributes of its `a` elements.
+
+## Switching off checks in a document
+
+An HTML comment `<!-- mdlink-audit-ignore-next-line -->` skips the links on the line
+after it. `<!-- mdlink-audit-disable -->` skips the links on every following line up to
+the next `<!-- mdlink-audit-enable -->`. Skipped links count as ignored.
 
 ## Static HTML in Markdown
 
@@ -151,4 +199,4 @@ Use the process exit code as the CI gate. Do not assume that receiving a report 
 - **No documents were checked:** verify paths and exclusions, and use `--fail-on-empty` in CI.
 - **An HTML link is absent from results:** enable `--include-html`; only static `href`/`src` in Markdown HTML tokens are supported. MDX expressions remain outside scope.
 
-For a bug report, include a minimal source file, any destination file, the exact command, root and working directory, Python version, operating system, and actual output. Remove private paths and content before sharing.
+For a bug report, include a minimal source file, any destination file, the exact command, root and working directory, mdlink-audit version, operating system, and actual output. Remove private paths and content before sharing.

@@ -57,13 +57,13 @@ The [supported scope and limits](usage.md) remain the interpretation boundary.
 
 ## Reproduce
 
-Use the mdlink-audit source accompanying this document and install its dependencies
-as described in [Contributing](../CONTRIBUTING.md). Obtain clean local checkouts at
-the exact commits linked above, then run from the mdlink-audit repository root:
+Build the checker as described in [Contributing](../CONTRIBUTING.md). Obtain clean
+local checkouts at the exact commits linked above, then run from the mdlink-audit
+repository root:
 
 ```sh
-python scripts/audit_corpus.py ../corpus/pipx ../corpus/rich ../corpus/pre-commit ../corpus/mkdocs ../corpus/uv --output ../corpus/default.json
-python scripts/audit_corpus.py ../corpus/pipx ../corpus/rich ../corpus/pre-commit ../corpus/mkdocs ../corpus/uv --include-html --output ../corpus/html.json
+mdlink-audit-corpus ../corpus/pipx ../corpus/rich ../corpus/pre-commit ../corpus/mkdocs ../corpus/uv --output ../corpus/default.json
+mdlink-audit-corpus ../corpus/pipx ../corpus/rich ../corpus/pre-commit ../corpus/mkdocs ../corpus/uv --include-html --output ../corpus/html.json
 ```
 
 Replace the paths with your own existing checkouts. The output parent directory
@@ -73,10 +73,10 @@ error. The JSON is still written when a checkout has reports or an operational
 error. For a smaller experiment, repeat `--scope README.md --scope docs`; record
 that changed selection and do not compare its counts to this whole-checkout table.
 
-The script never clones or fetches. It records the configuration (including the
-HTML flag), exact Git commits, selected paths, package and script hashes, Python
-and parser versions, every selected Markdown file's SHA-256, a combined manifest
-digest, and full diagnostics. Keep these JSON files with your own evaluation
+The corpus audit never clones or fetches. It records the configuration (including
+the HTML flag), exact Git commits, selected paths, the tool version, every selected
+Markdown file's SHA-256, a combined manifest digest, and full diagnostics. Keep these
+JSON files with your own evaluation
 records. The original full results are retained outside this repository as
 `.validation-mdlink/results/corpus-default.json` and `corpus-html.json`. Download
 the published [default report](https://github.com/christypixel68-cloud/mdlink-audit/releases/download/v0.2.0/corpus-default.json)

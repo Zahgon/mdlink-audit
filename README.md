@@ -4,7 +4,7 @@
 
 Check local Markdown links before a rename, a move, or a release breaks your documentation.
 
-**mdlink-audit** is a small Python command-line tool for checking file links, image paths, and Markdown heading fragments inside a repository. It runs offline and can report failures in your terminal, as JSON, or as GitHub Actions annotations.
+**mdlink-audit** is a small Rust command-line tool for checking file links, image paths, and Markdown heading fragments inside a repository. It runs offline and can report failures in your terminal, as JSON, or as GitHub Actions annotations.
 
 [中文说明](README.zh-CN.md) · [Usage](docs/usage.md) · [GitHub Action](docs/github-action.md) · [Repository validation](docs/validation.md) · [Contributing](CONTRIBUTING.md)
 
@@ -24,30 +24,22 @@ External URLs and protocol links are skipped; no requests are made to check them
 
 ## Try it
 
-Requires **Python 3.11 or later**. Install the versioned source with pip and Git, then run the checker from the repository you want to audit:
+Requires a Rust toolchain with Cargo. Install the versioned source with Cargo and Git, then run the checker from the repository you want to audit:
 
 ```sh
-python -m pip install "git+https://github.com/christypixel68-cloud/mdlink-audit.git@v0.2.0"
-python -m mdlink_audit --help
-python -m mdlink_audit .
+cargo install --locked --git https://github.com/christypixel68-cloud/mdlink-audit.git --tag v0.2.0
+mdlink-audit --help
+mdlink-audit .
 ```
 
-Alternatively, download a wheel from the [GitHub release](https://github.com/christypixel68-cloud/mdlink-audit/releases/tag/v0.2.0) and install it with `python -m pip install path/to/downloaded.whl`. The package is not published to PyPI.
+The crate is not published to crates.io. From a source checkout, `cargo build --release --locked` places the `mdlink-audit` binary in `target/release/`.
 
-The installed command is also available as `mdlink-audit`:
+More examples:
 
 ```sh
 mdlink-audit --root /path/to/repository
 mdlink-audit README.md docs --format text
 mdlink-audit --format json
-```
-
-From a source checkout, run the temporary broken-then-fixed demonstration:
-
-```sh
-git clone https://github.com/christypixel68-cloud/mdlink-audit.git
-cd mdlink-audit
-python examples/demo.py
 ```
 
 By default, the root is the nearest parent directory containing `.git`, starting at the working directory; if none exists, it is the working directory. With no paths, the tool scans the root. Explicit paths are relative to the working directory and must stay inside the selected root.
@@ -82,15 +74,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
-        with:
-          python-version: "3.11"
       - uses: christypixel68-cloud/mdlink-audit@v0.2.0
         with:
           include-html: 'true'
 ```
 
-The action checks the whole repository and fails on an empty scan by default. See [action inputs](docs/github-action.md#inputs) for path and configuration options. Pin actions to reviewed full commit SHAs for reproducible use. Installation may download dependencies; the installed checker itself runs without network access.
+The action checks the whole repository and fails on an empty scan by default. See [action inputs](docs/github-action.md#inputs) for path and configuration options. Pin actions to reviewed full commit SHAs for reproducible use. The action builds the checker with Cargo on the runner, which may download crates; the checker itself runs without network access.
 
 ## pre-commit
 
@@ -108,18 +97,16 @@ The hook scans the entire repository on every invocation, including commits that
 
 ## Scope and status
 
-Version `0.2.0` is an early release. Other link checkers already cover overlapping use cases; this project focuses on an offline Python workflow with local paths, heading validation, and actionable CI output. It is not a full GitHub renderer and does not claim complete GitHub Flavored Markdown compatibility.
+Version `0.2.0` is an early release. Other link checkers already cover overlapping use cases; this project focuses on an offline workflow with local paths, heading validation, and actionable CI output. It is not a full GitHub renderer and does not claim complete GitHub Flavored Markdown compatibility.
 
 Please read the [known limitations](docs/design.md#known-limitations) before using it as a release gate. The [roadmap](docs/roadmap.md) describes proposed improvements, and the [changelog](CHANGELOG.md) records implemented changes.
 
 ## Development
 
 ```sh
-python -m pip install ".[dev]"
-python -m ruff check .
-python -m ruff format --check .
-python -m pytest
-python -m mdlink_audit . --fail-on-empty
+cargo build --release --locked
+cargo test --locked
+cargo run --release --locked --bin mdlink-audit -- . --fail-on-empty
 ```
 
 Small reproduction cases and cross-platform fixes are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).

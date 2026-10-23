@@ -14,100 +14,61 @@ concurrency:
 
 jobs:
   tests:
-    name: Python ${{ matrix.python }} on ${{ matrix.os }}
+    name: Rust on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 10
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            python: "3.11"
-          - os: ubuntu-latest
-            python: "3.12"
-          - os: ubuntu-latest
-            python: "3.13"
-          - os: ubuntu-latest
-            python: "3.14"
-          - os: windows-latest
-            python: "3.11"
-          - os: windows-latest
-            python: "3.14"
-          - os: macos-latest
-            python: "3.14"
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
-        with:
-          python-version: ${{ matrix.python }}
-      - name: Install development dependencies
-        run: python -m pip install -e ".[dev]"
-      - name: Run regression tests
-        run: python -m pytest -q
-      - name: Check this repository's documentation
-        run: python -m mdlink_audit --format github --fail-on-empty
-      - name: Exercise the broken-then-fixed demo
-        run: python examples/demo.py
-
-  minimum-parser:
-    name: Minimum parser dependency
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
-        with:
-          python-version: "3.11"
-      - run: python -m pip install -e ".[dev]" "markdown-it-py==3.0.0"
-      - run: python -m pytest -q
-
-  quality:
-    name: Lint and package verification
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
-        with:
-          python-version: "3.14"
-      - run: python -m pip install ".[dev]" "twine>=6,<8"
-      - run: python -m ruff check .
-      - run: python -m ruff format --check .
-      - run: python -m build
-      - run: python -m twine check dist/*
-      - name: Install the wheel into a clean environment and exercise it
-        run: python scripts/smoke_wheel.py
-      - name: Install pre-commit for hook integration verification
-        run: python -m pip install "pre-commit>=4,<5"
-      - name: Verify asset-only changes trigger the pre-commit hook
-        run: python scripts/smoke_precommit.py
-
-  action:
-    name: Composite Action on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 10
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
-        with:
-          python-version: "3.11"
+      - name: Build release binaries
+        run: cargo build --release --locked
+      - name: Run unit tests
+        run: cargo test --locked
+      - name: Check this repository's documentation
+        run: cargo run --release --locked --bin mdlink-audit -- --format github --fail-on-empty
+      - name: Exercise the broken-then-fixed demo
+        run: cargo run --locked --example demo
+
+  quality:
+    name: Formatting, lints and install smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Check formatting
+        run: cargo fmt --all --check
+      - name: Lint
+        run: cargo clippy --locked --all-targets -- -D warnings
+      - name: Fetch dependencies for the offline install
+        run: cargo fetch --locked
+      - name: Install and probe the three programs
+        shell: bash
+        run: bash scripts/smoke-install.sh
+
+  action:
+    name: Composite Action on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - name: Audit this repository through the Action
         uses: ./
         with:
           include-html: "true"
       - name: Prepare a broken HTML link in a path containing spaces
-        shell: python
+        shell: bash
         run: |
-          import os
-          from pathlib import Path
-          root = Path(os.environ["RUNNER_TEMP"]) / "mdlink action smoke"
-          root.mkdir()
-          (root / "guide.md").write_text("# 中文指南\n", encoding="utf-8")
-          (root / "README.md").write_text('<a href="guide.md#missing">Guide</a>\n', encoding="utf-8")
+          root="$RUNNER_TEMP/mdlink action smoke"
+          mkdir -p "$root"
+          printf '# 中文指南\n' > "$root/guide.md"
+          printf '<a href="guide.md#missing">Guide</a>\n' > "$root/README.md"
       - name: The Action must reject the broken link
         id: broken
         continue-on-error: true
@@ -117,15 +78,13 @@ jobs:
           include-html: "true"
       - name: Verify failure propagation
         if: steps.broken.outcome != 'failure'
-        shell: python
-        run: raise SystemExit("The Action failed to reject a broken HTML link")
-      - name: Correct the link
-        shell: python
+        shell: bash
         run: |
-          import os
-          from pathlib import Path
-          root = Path(os.environ["RUNNER_TEMP"]) / "mdlink action smoke"
-          (root / "README.md").write_text('<a href="guide.md#中文指南">Guide</a>\n', encoding="utf-8")
+          echo "The Action failed to reject a broken HTML link"
+          exit 1
+      - name: Correct the link
+        shell: bash
+        run: printf '<a href="guide.md#中文指南">Guide</a>\n' > "$RUNNER_TEMP/mdlink action smoke/README.md"
       - name: The Action must accept the corrected link
         uses: ./
         with:

@@ -35,8 +35,14 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Install and run mdlink-audit
-      shell: python
+    - name: Build mdlink-audit from the selected action revision
+      shell: bash
+      env:
+        MDLINK_ACTION_PATH: ${{ github.action_path }}
+        MDLINK_TARGET_DIR: ${{ runner.temp }}/mdlink-audit-target
+      run: cargo build --release --locked --manifest-path "$MDLINK_ACTION_PATH/Cargo.toml" --target-dir "$MDLINK_TARGET_DIR"
+    - name: Run mdlink-audit
+      shell: bash
       env:
         MDLINK_ACTION_PATH: ${{ github.action_path }}
         MDLINK_INPUT_PATHS: ${{ inputs.paths }}
@@ -46,10 +52,5 @@ runs:
         MDLINK_INPUT_IGNORE_LINKS: ${{ inputs.ignore-links }}
         MDLINK_INPUT_INCLUDE_HTML: ${{ inputs.include-html }}
         MDLINK_INPUT_FAIL_ON_EMPTY: ${{ inputs.fail-on-empty }}
-      run: |
-        import os
-        import runpy
-        from pathlib import Path
-
-        entry = Path(os.environ["MDLINK_ACTION_PATH"]) / "scripts" / "action_entry.py"
-        runpy.run_path(str(entry), run_name="__main__")
+        MDLINK_TARGET_DIR: ${{ runner.temp }}/mdlink-audit-target
+      run: '"$MDLINK_TARGET_DIR/release/mdlink-audit-action"'

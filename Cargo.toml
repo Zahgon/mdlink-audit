@@ -1,0 +1,36 @@
+[package]
+name = "mdlink-audit"
+version = "0.2.0"
+edition = "2024"
+description = "Offline checks for repository Markdown links, headings, and case-sensitive paths."
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/christypixel68-cloud/mdlink-audit"
+publish = false
+
+[lib]
+name = "mdlink_audit"
+path = "src/lib.rs"
+
+[[bin]]
+name = "mdlink-audit"
+path = "src/main.rs"
+
+[[bin]]
+name = "mdlink-audit-action"
+path = "src/bin/action.rs"
+
+[[bin]]
+name = "mdlink-audit-corpus"
+path = "src/bin/corpus.rs"
+
+[dependencies]
+caseless = "0.2"
+entities = "1"
+markdown = "1"
+pulldown-cmark = { version = "0.13", default-features = false }
+unicode-general-category = "1"
+unicode-normalization = "0.1"
+
+[profile.release]
+codegen-units = 4

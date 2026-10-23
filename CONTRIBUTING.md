@@ -6,28 +6,23 @@ Thanks for helping improve mdlink-audit. Useful contributions include reproducib
 
 ## Set up a checkout
 
-Use Python 3.11 or later. A virtual environment is recommended:
+Install a stable Rust toolchain with Cargo, then build and test:
 
 ```sh
-python -m venv .venv
+cargo build --release --locked
+cargo test --locked
+cargo run --release --locked --bin mdlink-audit -- . --fail-on-empty
 ```
 
-Activate it with `.venv\Scripts\Activate.ps1` in Windows PowerShell or `source .venv/bin/activate` in a POSIX shell, then install development dependencies:
-
-```sh
-python -m pip install ".[dev]"
-python -m ruff check .
-python -m ruff format --check .
-python -m pytest
-python -m mdlink_audit . --fail-on-empty
-```
+The integration tests run the programs Cargo builds. To run them against other builds, name those programs in
+`MDLINK_AUDIT_BIN`, `MDLINK_AUDIT_ACTION_BIN` and `MDLINK_AUDIT_CORPUS_BIN`.
 
 ## Report a bug
 
 Before reporting, read the known limitations and try the smallest case that still fails. Include:
 
 - The exact command, selected root, and current working directory.
-- The mdlink-audit and Python versions, operating system, and relevant filesystem details.
+- The mdlink-audit version, operating system, and relevant filesystem details.
 - Minimal Markdown source and destination files, preserving the filename casing and encoding involved.
 - Expected behavior, actual output, and exit status.
 - Relevant configuration, especially exclusions and ignored links.
